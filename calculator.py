@@ -41,18 +41,59 @@ To submit your homework:
 
 
 """
-
+def homepage():
+    return """
+    <h1>wsgi-calculator</h1>
+    <h2>Help</h2>
+    <p>
+        Your users should be able to send appropriate requests and get back proper responses. For example, if I open a
+        browser to your wsgi application at
+        <a href="http://localhost:8080/multiply/3/5">http://localhost:8080/multiply/3/5</a> then the response body in my
+        browser should be <b>15</b>.
+    </p>
+    <p>Consider the following URL/Response body pairs as tests:</p>
+    <table>
+        <tr><td>http://localhost:8080/multiply/3/5   => 15</td></tr>
+        <tr><td>http://localhost:8080/add/23/42      => 65</td></tr>
+        <tr><td>http://localhost:8080/subtract/23/42 => -19</td></tr>
+        <tr><td>http://localhost:8080/divide/22/11   => 2</td></tr>
+        <tr><td>http://localhost:8080/divide/6/0     => HTTP "400 Bad Request"</td></tr>
+        <tr><td>http://localhost:8080/               => <html>Here's how to use this page...</html></td></tr>
+    </table>
+    """
 
 def add(*args):
     """ Returns a STRING with the sum of the arguments """
 
     # TODO: Fill sum with the correct value, based on the
     # args provided.
-    sum = "0"
+    sum = 0
+    for arg in args:
+        sum += int(arg)
+    return str(sum)
 
-    return sum
 
 # TODO: Add functions for handling more arithmetic operations.
+def subtract(*args):
+    total = int(args[0])
+    for arg in args[1:]:
+        total -= int(arg)
+    return str(total)
+
+
+def multiply(*args):
+    total = int(args[0])
+    for arg in args[1:]:
+        total *= int(arg)
+    return str(total)
+
+
+def divide(*args):
+    total = int(args[0])
+    for arg in args[1:]:
+        total /= int(arg)
+    return str(total)
+
 
 def resolve_path(path):
     """
@@ -64,10 +105,17 @@ def resolve_path(path):
     # examples provide the correct *syntax*, but you should
     # determine the actual values of func and args using the
     # path.
-    func = add
-    args = ['25', '32']
-
+    args = path.split('/')[1:]
+    func_name = args.pop(0)
+    func = {
+        '': homepage,
+        'add': add,
+        'subtract': subtract,
+        'multiply': multiply,
+        'divide': divide,
+    }.get(func_name)
     return func, args
+
 
 def application(environ, start_response):
     # TODO: Your application code from the book database
@@ -77,9 +125,29 @@ def application(environ, start_response):
     #
     # TODO (bonus): Add error handling for a user attempting
     # to divide by zero.
-    pass
+    headers = [('Content-type', 'text/html')]
+    try:
+        path = environ.get('PATH_INFO', None)
+        if path is None:
+            raise NameError
+        func, args = resolve_path(path)
+        body = func(*args)
+        status = "200 OK"
+    except NameError:
+        status = "404 Not Found"
+        body = "<h1>Not Found</h1>"
+    except Exception:
+        status = "500 Internal Server Error"
+        body = "<h1>Internal Server Error</h1>"
+    finally:
+        headers.append(('Content-length', str(len(body))))
+        start_response(status, headers)
+        return [body.encode('utf8')]
+
 
 if __name__ == '__main__':
     # TODO: Insert the same boilerplate wsgiref simple
     # server creation that you used in the book database.
-    pass
+    from wsgiref.simple_server import make_server
+    srv = make_server('localhost', 8080, application)
+    srv.serve_forever()
